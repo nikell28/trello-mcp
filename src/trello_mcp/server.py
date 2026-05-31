@@ -32,6 +32,31 @@ def _stub(tool: str) -> dict[str, str]:
     }
 
 
+def _map_comment_action(action: dict[str, object]) -> dict[str, str]:
+    """Преобразовать сырой Trello commentCard action в плоский комментарий.
+
+    Автор — fullName с фолбэком на username (и на «(удалённый пользователь)»,
+    если memberCreator отсутствует целиком).
+    """
+    member = action.get("memberCreator") or {}
+    if not isinstance(member, dict):
+        member = {}
+    author = member.get("fullName") or member.get("username") or "(удалённый пользователь)"
+    data = action.get("data") or {}
+    text = data.get("text", "") if isinstance(data, dict) else ""
+    return {
+        "id": str(action.get("id", "")),
+        "author": str(author),
+        "text": str(text),
+        "created_at": str(action.get("date", "")),
+    }
+
+
+def _sort_comments_by_created_at(comments: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Отсортировать комментарии по created_at по возрастанию (от старых к новым)."""
+    return sorted(comments, key=lambda comment: comment["created_at"])
+
+
 @mcp.tool()
 async def get_lists() -> list[dict[str, str]] | str:
     """Вернуть все открытые списки (колонки) управляемой доски Trello.
@@ -253,5 +278,29 @@ async def add_comment(
         async with TrelloClient(settings) as client:
             result = await client.add_comment(card_id=card_id, text=text)
         return result
+    except TrelloError as exc:
+        return str(exc)
+
+
+@mcp.tool()
+async def get_comments(
+    card_id: Annotated[str, Field(description="Идентификатор карточки.")],
+) -> list[dict[str, str]] | str:
+    """Вернуть все комментарии карточки в хронологическом порядке, от старых к новым.
+
+    Аргументы:
+        card_id: карточка, чьи комментарии нужно прочитать.
+
+    Каждый комментарий содержит: id, author, text, created_at (ISO 8601).
+    Используй, чтобы прочитать ответы команды на свои комментарии и собрать
+    контекст обсуждения перед действиями над карточкой.
+    """
+    schemas.GetCommentsArgs(card_id=card_id)
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            actions = await client.get_comments(card_id=card_id)
+        comments = [_map_comment_action(action) for action in actions]
+        return _sort_comments_by_created_at(comments)
     except TrelloError as exc:
         return str(exc)
