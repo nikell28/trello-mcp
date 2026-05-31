@@ -54,3 +54,25 @@ class Card(BaseModel):
         default_factory=list,
         description="Метки, навешенные на карточку.",
     )
+
+
+class CardBrief(BaseModel):
+    """Урезанное представление карточки для агента (экономия контекста).
+
+    Содержит только поля, необходимые для принятия решений: id, name, idList, labels.
+    Лишние поля Trello API автоматически отбрасываются через extra="ignore".
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(description="Идентификатор карточки в Trello.")
+    name: str = Field(description="Имя (заголовок) карточки.")
+    id_list: str = Field(
+        validation_alias="idList",
+        serialization_alias="idList",
+        description="Идентификатор списка, в котором лежит карточка.",
+    )
+    labels: list[Label] = Field(
+        default_factory=list,
+        description="Метки, навешенные на карточку.",
+    )
