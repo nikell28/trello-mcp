@@ -671,3 +671,47 @@ async def test_tc_obn_05_3_update_position_404_readable_message(
         with pytest.raises(TrelloNotFoundError) as exc_info:
             await client.update_position(card_id="nonexistent", pos="bottom")
     assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-KOM-01: add_comment (#инициатива-m9k2vx)
+# ---------------------------------------------------------------------------
+
+_COMMENT_RESPONSE = {
+    "id": "cmt-001",
+    "type": "commentCard",
+    "data": {"text": "Вывод агента"},
+}
+
+
+async def test_tc_kom_01_1_comment_added_correct_endpoint(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-KOM-01-1 — Запрос уходит на корректный путь с text в query/params."""
+    # Given: замокан POST /cards/{id}/actions/comments
+    route = respx_mock.post("/cards/card-xyz/actions/comments").mock(
+        return_value=httpx.Response(200, json=_COMMENT_RESPONSE)
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается add_comment с id карточки и текстом
+        result = await client.add_comment(card_id="card-xyz", text="Вывод агента")
+    # Then: запрос уходит на корректный путь с text в параметрах
+    assert route.called
+    params = dict(route.calls.last.request.url.params)
+    assert params["text"] == "Вывод агента"
+    assert result["id"] == "cmt-001"
+
+
+async def test_tc_kom_01_3_nonexistent_card_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-KOM-01-3 — Несуществующая карточка (404) возвращает читаемое сообщение."""
+    # Given: замокан API, 404
+    respx_mock.post("/cards/nonexistent/actions/comments").mock(
+        return_value=httpx.Response(404, text="Card not found")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloNotFoundError с читаемым сообщением
+        with pytest.raises(TrelloNotFoundError) as exc_info:
+            await client.add_comment(card_id="nonexistent", text="Вывод")
+    assert str(exc_info.value)
