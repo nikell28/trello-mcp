@@ -83,9 +83,20 @@ class TrelloClient:
         list_id: str,
         name: str,
         desc: str | None = None,
+        due: str | None = None,
         pos: str | float | None = None,
     ) -> Card:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+        """Создать карточку в указанном списке. Опциональные поля не отправляются если None."""
+        params: dict[str, object] = {**self._auth, "idList": list_id, "name": name}
+        if desc is not None:
+            params["desc"] = desc
+        if due is not None:
+            params["due"] = due
+        if pos is not None:
+            params["pos"] = pos
+        response = await self._client.post("/cards", params=params)
+        self._raise_for_status(response)
+        return Card.model_validate(response.json())
 
     async def move_card(
         self,

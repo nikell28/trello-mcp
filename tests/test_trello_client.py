@@ -2,6 +2,9 @@
 
 TC-OBZ-01-1..5 — инструмент get_lists (US-OBZ-01).
 TC-OBZ-02-1..4 — инструмент get_cards (US-OBZ-02).
+TC-NAP-01-1,2,4 — create_card базовое (US-NAP-01).
+TC-NAP-02-1,2   — create_card с desc/due (US-NAP-02).
+TC-NAP-03-1,2   — create_card с pos (US-NAP-03).
 
 Мок на уровне HTTP через respx; проверяются и построение запроса,
 и обработка ответа / ошибочных статусов.
@@ -219,3 +222,140 @@ async def test_tc_obz_02_4_500_raises_api_error(
         with pytest.raises(TrelloAPIError) as exc_info:
             await client.get_cards()
     assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-NAP-01: create_card — базовое создание карточки
+# ---------------------------------------------------------------------------
+
+_CARD_RESPONSE = {
+    "id": "abc123",
+    "name": "Новая задача",
+    "idList": "list-001",
+    "desc": "",
+    "pos": 65536.0,
+    "closed": False,
+    "url": "https://trello.com/c/abc123",
+    "labels": [],
+}
+
+
+async def test_tc_nap_01_1_card_created_in_list(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-01-1 — Запрос уходит с idList и name; карточка создаётся в указанном списке."""
+    # Given: замокан POST /cards, возвращает созданную карточку
+    route = respx_mock.post("/cards").mock(return_value=httpx.Response(200, json=_CARD_RESPONSE))
+    async with TrelloClient(settings) as client:
+        # When: вызывается create_card с idList и name
+        card = await client.create_card(list_id="list-001", name="Новая задача")
+    # Then: запрос уходит с переданными idList и name
+    assert route.called
+    params = dict(route.calls.last.request.url.params)
+    assert params["idList"] == "list-001"
+    assert params["name"] == "Новая задача"
+    assert card.id_list == "list-001"
+
+
+async def test_tc_nap_01_2_returns_card_id(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-01-2 — Инструмент возвращает id "abc123" созданной карточки."""
+    # Given: замокан API, возвращает карточку с id="abc123"
+    respx_mock.post("/cards").mock(return_value=httpx.Response(200, json=_CARD_RESPONSE))
+    async with TrelloClient(settings) as client:
+        # When: вызывается create_card
+        card = await client.create_card(list_id="list-001", name="Новая задача")
+    # Then: возвращается id "abc123"
+    assert card.id == "abc123"
+
+
+async def test_tc_nap_01_4_invalid_list_id_raises_readable_error(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-01-4 — Несуществующий idList возвращает читаемое сообщение об ошибке."""
+    # Given: замокан API, возвращает 400 на невалидный idList
+    respx_mock.post("/cards").mock(return_value=httpx.Response(400, text="invalid id"))
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloAPIError с читаемым сообщением
+        with pytest.raises(TrelloAPIError) as exc_info:
+            await client.create_card(list_id="nonexistent", name="Задача")
+    assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-NAP-02: create_card — desc и due
+# ---------------------------------------------------------------------------
+
+
+async def test_tc_nap_02_1_desc_and_due_sent_in_request(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-02-1 — desc и due попадают в запрос в корректном формате."""
+    # Given: замокан POST /cards
+    route = respx_mock.post("/cards").mock(
+        return_value=httpx.Response(
+            200,
+            json={**_CARD_RESPONSE, "desc": "Описание задачи"},
+        )
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается create_card с desc и due (ISO-дата)
+        await client.create_card(
+            list_id="list-001",
+            name="Новая задача",
+            desc="Описание задачи",
+            due="2026-06-01T12:00:00",
+        )
+    # Then: параметры запроса содержат desc и due
+    params = dict(route.calls.last.request.url.params)
+    assert params["desc"] == "Описание задачи"
+    assert params["due"] == "2026-06-01T12:00:00"
+
+
+async def test_tc_nap_02_2_desc_and_due_optional(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-02-2 — Без desc и due поля не отправляются в запросе."""
+    # Given: замокан API
+    route = respx_mock.post("/cards").mock(return_value=httpx.Response(200, json=_CARD_RESPONSE))
+    async with TrelloClient(settings) as client:
+        # When: вызывается create_card без desc и due
+        await client.create_card(list_id="list-001", name="Новая задача")
+    # Then: поля desc и due отсутствуют в запросе
+    params = dict(route.calls.last.request.url.params)
+    assert "desc" not in params
+    assert "due" not in params
+
+
+# ---------------------------------------------------------------------------
+# TC-NAP-03: create_card — pos
+# ---------------------------------------------------------------------------
+
+
+async def test_tc_nap_03_1_pos_top_sent_in_request(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-03-1 — pos=top передаётся в параметры запроса."""
+    # Given: замокан POST /cards
+    route = respx_mock.post("/cards").mock(return_value=httpx.Response(200, json=_CARD_RESPONSE))
+    async with TrelloClient(settings) as client:
+        # When: вызывается create_card с pos="top"
+        await client.create_card(list_id="list-001", name="Новая задача", pos="top")
+    # Then: параметры запроса содержат pos=top
+    params = dict(route.calls.last.request.url.params)
+    assert params["pos"] == "top"
+
+
+async def test_tc_nap_03_2_without_pos_field_not_sent(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-NAP-03-2 — Без pos поле не отправляется (поведение Trello по умолчанию)."""
+    # Given: замокан API
+    route = respx_mock.post("/cards").mock(return_value=httpx.Response(200, json=_CARD_RESPONSE))
+    async with TrelloClient(settings) as client:
+        # When: вызывается create_card без pos
+        await client.create_card(list_id="list-001", name="Новая задача")
+    # Then: поле pos отсутствует в запросе
+    params = dict(route.calls.last.request.url.params)
+    assert "pos" not in params

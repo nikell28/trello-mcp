@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
@@ -39,6 +40,23 @@ Position = Annotated[str | float, BeforeValidator(_validate_pos)]
 """Тип позиции карточки/списка: 'top', 'bottom' или неотрицательное число."""
 
 
+def _validate_due(value: object) -> str | None:
+    """Срок карточки: строка в ISO 8601 формате или None."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"due должен быть строкой в ISO-формате, получено: {value!r}")
+    try:
+        datetime.fromisoformat(value)
+    except ValueError:
+        raise ValueError(f"due должен быть в ISO-формате, получено: {value!r}")
+    return value
+
+
+DueDate = Annotated[str, BeforeValidator(_validate_due)]
+"""Тип срока карточки: строка в ISO 8601 формате."""
+
+
 class _ArgsModel(BaseModel):
     """База для моделей аргументов: запрещаем неизвестные поля."""
 
@@ -55,6 +73,7 @@ class CreateCardArgs(_ArgsModel):
     list_id: str = Field(min_length=1, description="Идентификатор списка, куда создаётся карточка.")
     name: str = Field(min_length=1, description="Заголовок новой карточки (не пустой).")
     desc: str | None = Field(default=None, description="Описание карточки (опционально).")
+    due: DueDate | None = Field(default=None, description="Срок в ISO-формате (опционально).")
     pos: Position | None = Field(default=None, description="Позиция: 'top', 'bottom' или число.")
 
 

@@ -66,25 +66,38 @@ async def get_cards() -> list[dict[str, object]] | str:
 
 
 @mcp.tool()
-def create_card(
+async def create_card(
     list_id: Annotated[str, Field(description="Идентификатор списка, куда добавить карточку.")],
     name: Annotated[str, Field(description="Заголовок новой карточки (не пустой).")],
     desc: Annotated[str | None, Field(description="Описание карточки (опционально).")] = None,
+    due: Annotated[
+        str | None,
+        Field(description="Срок выполнения в ISO-формате, например 2026-06-01T12:00:00 (опционально)."),
+    ] = None,
     pos: Annotated[
         str | float | None,
         Field(description="Позиция: 'top', 'bottom' или неотрицательное число."),
     ] = None,
-) -> dict[str, str]:
+) -> dict[str, str] | str:
     """Создать карточку в списке.
 
     Аргументы:
         list_id: список назначения.
         name: заголовок карточки, обязателен и не может быть пустым.
         desc: описание карточки.
+        due: срок выполнения в ISO-формате.
         pos: позиция — 'top', 'bottom' или число.
     """
-    schemas.CreateCardArgs(list_id=list_id, name=name, desc=desc, pos=pos)
-    return _stub("create_card")
+    schemas.CreateCardArgs(list_id=list_id, name=name, desc=desc, due=due, pos=pos)
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            card = await client.create_card(
+                list_id=list_id, name=name, desc=desc, due=due, pos=pos
+            )
+        return {"id": card.id, "name": card.name, "idList": card.id_list}
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()

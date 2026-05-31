@@ -56,3 +56,32 @@ def test_move_card_invalid_pos_rejected() -> None:
 def test_add_comment_empty_text_rejected() -> None:
     with pytest.raises(ValidationError):
         AddCommentArgs(card_id="c1", text="")
+
+
+# ---------------------------------------------------------------------------
+# TC-NAP: create_card validation
+# ---------------------------------------------------------------------------
+
+
+def test_tc_nap_01_3_empty_name_rejected() -> None:
+    """TC-NAP-01-3 — Пустой name отклоняется валидацией без HTTP-запроса."""
+    with pytest.raises(ValidationError):
+        CreateCardArgs(list_id="l1", name="")
+
+
+def test_tc_nap_02_3_invalid_due_rejected() -> None:
+    """TC-NAP-02-3 — Невалидный формат due отклоняется валидацией."""
+    with pytest.raises(ValidationError):
+        CreateCardArgs(list_id="l1", name="Задача", due="завтра")
+
+
+def test_tc_nap_02_3_valid_due_accepted() -> None:
+    """TC-NAP-02-3 — Корректный ISO-формат due принимается."""
+    args = CreateCardArgs(list_id="l1", name="Задача", due="2026-06-01T12:00:00")
+    assert args.due == "2026-06-01T12:00:00"
+
+
+def test_tc_nap_03_3_invalid_pos_rejected() -> None:
+    """TC-NAP-03-3 — Невалидное значение pos отклоняется (допустимы top, bottom, число)."""
+    with pytest.raises(ValidationError):
+        CreateCardArgs(list_id="l1", name="Задача", pos="middle")
