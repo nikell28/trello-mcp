@@ -48,8 +48,8 @@ def _validate_due(value: object) -> str | None:
         raise ValueError(f"due должен быть строкой в ISO-формате, получено: {value!r}")
     try:
         datetime.fromisoformat(value)
-    except ValueError:
-        raise ValueError(f"due должен быть в ISO-формате, получено: {value!r}")
+    except ValueError as exc:
+        raise ValueError(f"due должен быть в ISO-формате, получено: {value!r}") from exc
     return value
 
 

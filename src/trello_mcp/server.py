@@ -72,7 +72,7 @@ async def create_card(
     desc: Annotated[str | None, Field(description="Описание карточки (опционально).")] = None,
     due: Annotated[
         str | None,
-        Field(description="Срок выполнения в ISO-формате, например 2026-06-01T12:00:00 (опционально)."),
+        Field(description="Срок выполнения в ISO-формате, например 2026-06-01T12:00:00."),
     ] = None,
     pos: Annotated[
         str | float | None,
