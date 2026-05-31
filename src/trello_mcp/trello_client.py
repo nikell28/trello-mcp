@@ -224,3 +224,25 @@ class TrelloClient:
             )
         data = response.json()
         return {"id": data["id"], "card_id": card_id, "text": text}
+
+    async def get_comments(self, card_id: str) -> list[dict[str, object]]:
+        """GET /cards/{card_id}/actions?filter=commentCard.
+
+        Возвращает сырые actions Trello (без маппинга и сортировки).
+        Преобразование в плоский результат и сортировка — в server.py.
+        """
+        response = await self._client.get(
+            f"/cards/{card_id}/actions",
+            params={**self._auth, "filter": "commentCard"},
+        )
+        if response.status_code == 401:
+            raise TrelloAuthError(
+                "Ошибка авторизации Trello (401): проверьте TRELLO_API_KEY и TRELLO_TOKEN."
+            )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(f"Карточка не найдена (404): card_id={card_id!r}.")
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        return list(response.json())

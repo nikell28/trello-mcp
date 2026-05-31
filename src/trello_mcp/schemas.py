@@ -138,3 +138,9 @@ class AddCommentArgs(_ArgsModel):
 
     card_id: str = Field(min_length=1, description="Идентификатор карточки.")
     text: str = Field(min_length=1, description="Текст комментария (не пустой).")
+
+
+class GetCommentsArgs(_ArgsModel):
+    """Аргументы инструмента get_comments."""
+
+    card_id: str = Field(min_length=1, description="Идентификатор карточки.")
