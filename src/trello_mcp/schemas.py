@@ -46,9 +46,7 @@ class _ArgsModel(BaseModel):
 
 
 class GetCardsArgs(_ArgsModel):
-    """Аргументы инструмента get_cards."""
-
-    list_id: str = Field(min_length=1, description="Идентификатор списка Trello.")
+    """Аргументы инструмента get_cards (нет параметров — доска берётся из конфига)."""
 
 
 class CreateCardArgs(_ArgsModel):

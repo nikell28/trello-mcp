@@ -1,8 +1,8 @@
-"""Каркас клиента Trello REST API.
+"""Клиент Trello REST API.
 
-Спринт 0: класс существует, конструктор готовит httpx.AsyncClient, но методы
-не реализованы — каждый бросает NotImplementedError. Реальные вызовы и разбор
-ответов появятся в Спринте 1 (по TDD, с respx-моками).
+Спринт 1: реализованы get_lists() и get_cards(). Остальные методы остаются
+заглушками до соответствующих спринтов. Ошибки HTTP маппируются в доменные
+исключения из errors.py.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from types import TracebackType
 import httpx
 
 from trello_mcp.config import Settings
-from trello_mcp.models import Card, Label, List
+from trello_mcp.errors import TrelloAPIError, TrelloAuthError, TrelloNotFoundError
+from trello_mcp.models import Card, CardBrief, Label, List
 
 
 class TrelloClient:
@@ -44,11 +45,38 @@ class TrelloClient:
     ) -> None:
         await self.aclose()
 
-    async def get_lists(self) -> list[List]:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+    def _raise_for_status(self, response: httpx.Response) -> None:
+        """Преобразовать HTTP-ошибку в доменное исключение с читаемым сообщением."""
+        if response.status_code == 401:
+            raise TrelloAuthError(
+                "Ошибка авторизации Trello (401): проверьте TRELLO_API_KEY и TRELLO_TOKEN."
+            )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(
+                f"Ресурс не найден (404): board_id={self._settings.trello_board_id!r}."
+            )
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
 
-    async def get_cards(self, list_id: str) -> list[Card]:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+    async def get_lists(self) -> list[List]:
+        """Получить все открытые списки (колонки) управляемой доски."""
+        response = await self._client.get(
+            f"/boards/{self._settings.trello_board_id}/lists",
+            params={**self._auth, "filter": "open"},
+        )
+        self._raise_for_status(response)
+        return [List.model_validate(item) for item in response.json()]
+
+    async def get_cards(self) -> list[CardBrief]:
+        """Получить все карточки управляемой доски (урезанный набор полей)."""
+        response = await self._client.get(
+            f"/boards/{self._settings.trello_board_id}/cards",
+            params={**self._auth, "fields": "id,name,idList,labels"},
+        )
+        self._raise_for_status(response)
+        return [CardBrief.model_validate(item) for item in response.json()]
 
     async def create_card(
         self,

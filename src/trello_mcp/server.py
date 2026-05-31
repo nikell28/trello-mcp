@@ -1,10 +1,9 @@
 """FastMCP-сервер: регистрация 9 инструментов управления доской Trello.
 
-Спринт 0: сигнатуры и docstring инструментов финальные (это контракт для
-агента), аргументы валидируются настоящими pydantic-схемами, но тело —
-заглушка: возвращается {"status": "not_implemented"}. Сервер импортируется и
-стартует без реальных кредов Trello, поэтому ни конфиг, ни TrelloClient на
-уровне импорта не создаются.
+Спринт 1: get_lists и get_cards реализованы — вызывают TrelloClient и
+оборачивают ошибки в читаемый текст. Остальные инструменты остаются
+заглушками. Конфиг и клиент создаются внутри каждого вызова инструмента,
+чтобы сервер мог импортироваться без реальных кредов Trello.
 """
 
 from __future__ import annotations
@@ -15,6 +14,9 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from trello_mcp import schemas
+from trello_mcp.config import get_settings
+from trello_mcp.errors import TrelloError
+from trello_mcp.trello_client import TrelloClient
 
 mcp = FastMCP("trello-mcp")
 
@@ -22,36 +24,45 @@ _STUB_STATUS = "not_implemented"
 
 
 def _stub(tool: str) -> dict[str, str]:
-    """Единый ответ-заглушка инструментов Спринта 0."""
+    """Единый ответ-заглушка нереализованных инструментов."""
     return {
         "status": _STUB_STATUS,
         "tool": tool,
-        "detail": "Каркас Спринта 0: реальная работа с Trello появится в Спринте 1.",
+        "detail": "Инструмент ещё не реализован.",
     }
 
 
 @mcp.tool()
-def get_lists() -> dict[str, str]:
-    """Вернуть все списки (колонки) управляемой доски Trello.
+async def get_lists() -> list[dict[str, str]] | str:
+    """Вернуть все открытые списки (колонки) управляемой доски Trello.
 
     Доска берётся из конфигурации сервера (TRELLO_BOARD_ID). Параметров нет.
     Используй, чтобы увидеть структуру доски перед действиями над карточками.
     """
-    schemas.GetListsArgs()
-    return _stub("get_lists")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            lists = await client.get_lists()
+        return [{"id": lst.id, "name": lst.name} for lst in lists]
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()
-def get_cards(
-    list_id: Annotated[str, Field(description="Идентификатор списка Trello.")],
-) -> dict[str, str]:
-    """Вернуть карточки указанного списка.
+async def get_cards() -> list[dict[str, object]] | str:
+    """Вернуть все карточки управляемой доски Trello (урезанный набор полей).
 
-    Аргументы:
-        list_id: идентификатор списка, карточки которого нужно получить.
+    Доска берётся из конфигурации сервера (TRELLO_BOARD_ID). Параметров нет.
+    Каждая карточка содержит: id, name, idList, labels.
+    Используй перед созданием карточки, чтобы избежать дублей.
     """
-    schemas.GetCardsArgs(list_id=list_id)
-    return _stub("get_cards")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            cards = await client.get_cards()
+        return [card.model_dump(by_alias=True) for card in cards]
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()
