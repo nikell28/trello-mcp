@@ -566,9 +566,7 @@ async def test_tc_obn_03_2_add_label_repeat_idempotent(
 ) -> None:
     """TC-OBN-03-2 — Повторное навешивание идемпотентно."""
     # Given: замокан API, Trello возвращает 200 оба раза
-    respx_mock.post("/cards/c1/idLabels").mock(
-        return_value=httpx.Response(200, text='["lbl1"]')
-    )
+    respx_mock.post("/cards/c1/idLabels").mock(return_value=httpx.Response(200, text='["lbl1"]'))
     async with TrelloClient(settings) as client:
         # When: вызывается add_label дважды с тем же id label
         result1 = await client.add_label_to_card(card_id="c1", label_id="lbl1")
@@ -583,9 +581,7 @@ async def test_tc_obn_03_3_add_label_nonexistent_readable_message(
 ) -> None:
     """TC-OBN-03-3 — Несуществующий label id возвращает читаемое сообщение."""
     # Given: замокан API, 404
-    respx_mock.post("/cards/c1/idLabels").mock(
-        return_value=httpx.Response(404, text="Not Found")
-    )
+    respx_mock.post("/cards/c1/idLabels").mock(return_value=httpx.Response(404, text="Not Found"))
     async with TrelloClient(settings) as client:
         # When/Then: поднимается TrelloNotFoundError с читаемым сообщением
         with pytest.raises(TrelloNotFoundError) as exc_info:
@@ -603,9 +599,7 @@ async def test_tc_obn_04_1_remove_label_delete_correct_path(
 ) -> None:
     """TC-OBN-04-1 — Label снимается: DELETE на корректный путь с обоими id."""
     # Given: замокан DELETE /cards/{id}/idLabels/{idLabel}
-    route = respx_mock.delete("/cards/c1/idLabels/lbl1").mock(
-        return_value=httpx.Response(200)
-    )
+    route = respx_mock.delete("/cards/c1/idLabels/lbl1").mock(return_value=httpx.Response(200))
     async with TrelloClient(settings) as client:
         # When: вызывается remove_label_from_card с id карточки и id label
         await client.remove_label_from_card(card_id="c1", label_id="lbl1")
@@ -618,9 +612,7 @@ async def test_tc_obn_04_2_remove_label_missing_no_crash(
 ) -> None:
     """TC-OBN-04-2 — Снятие отсутствующего label не вызывает падение."""
     # Given: замокан API, label не на карточке (Trello возвращает 404)
-    respx_mock.delete("/cards/c1/idLabels/lbl1").mock(
-        return_value=httpx.Response(404)
-    )
+    respx_mock.delete("/cards/c1/idLabels/lbl1").mock(return_value=httpx.Response(404))
     async with TrelloClient(settings) as client:
         # When: вызывается remove_label_from_card
         result = await client.remove_label_from_card(card_id="c1", label_id="lbl1")
