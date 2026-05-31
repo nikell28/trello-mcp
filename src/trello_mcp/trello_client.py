@@ -211,4 +211,16 @@ class TrelloClient:
         return Card.model_validate(response.json())
 
     async def add_comment(self, card_id: str, text: str) -> dict[str, str]:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+        """Добавить текстовый комментарий к карточке."""
+        response = await self._client.post(
+            f"/cards/{card_id}/actions/comments",
+            params={**self._auth, "text": text},
+        )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(f"Карточка не найдена (404): card_id={card_id!r}.")
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        data = response.json()
+        return {"id": data["id"], "card_id": card_id, "text": text}

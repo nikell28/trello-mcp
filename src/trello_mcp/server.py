@@ -237,10 +237,10 @@ async def update_position(
 
 
 @mcp.tool()
-def add_comment(
+async def add_comment(
     card_id: Annotated[str, Field(description="Идентификатор карточки.")],
     text: Annotated[str, Field(description="Текст комментария (не пустой).")],
-) -> dict[str, str]:
+) -> dict[str, str] | str:
     """Добавить комментарий к карточке.
 
     Аргументы:
@@ -248,4 +248,10 @@ def add_comment(
         text: текст комментария, не может быть пустым.
     """
     schemas.AddCommentArgs(card_id=card_id, text=text)
-    return _stub("add_comment")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            result = await client.add_comment(card_id=card_id, text=text)
+        return result
+    except TrelloError as exc:
+        return str(exc)

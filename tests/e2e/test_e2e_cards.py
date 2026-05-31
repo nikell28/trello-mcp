@@ -86,3 +86,27 @@ async def test_tc_prd_01_4_card_changes_list() -> None:
     card_map = {card.id: card for card in cards}
     assert created.id in card_map, f"Карточка {created.id} не найдена на доске"
     assert card_map[created.id].id_list == list_id_b
+
+
+async def test_tc_kom_01_4_comment_appears_on_card() -> None:
+    """TC-KOM-01-4 — Комментарий реально появляется на карточке (#инициатива-m9k2vx)."""
+    # Given: реальная доска, известен id карточки
+    card_id = os.environ.get("TRELLO_E2E_CARD_ID")
+    if not card_id:
+        pytest.skip("e2e требует TRELLO_E2E_CARD_ID")
+    settings = _e2e_settings()
+    comment_text = "E2E TC-KOM-01-4: add_comment test"
+
+    async with TrelloClient(settings) as client:
+        # When: вызывается add_comment
+        result = await client.add_comment(card_id=card_id, text=comment_text)
+        # Then: комментарий присутствует на карточке (проверка через GET actions)
+        response = await client._client.get(
+            f"/cards/{card_id}/actions",
+            params={**client._auth, "filter": "commentCard"},
+        )
+
+    assert result.get("id"), "add_comment должен вернуть id комментария"
+    actions = response.json()
+    comment_ids = {action["id"] for action in actions}
+    assert result["id"] in comment_ids, f"Комментарий {result['id']} не найден в actions карточки"
