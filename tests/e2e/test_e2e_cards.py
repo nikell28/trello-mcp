@@ -44,6 +44,27 @@ async def test_tc_nap_01_5_card_appears_on_board() -> None:
     assert created.id in card_ids, f"Карточка {created.id} не найдена на доске"
 
 
+async def test_tc_obn_03_4_label_appears_on_card() -> None:
+    """TC-OBN-03-4 — Тег реально появляется на карточке (#инициатива-e4u7qx)."""
+    # Given: реальная доска, известны id карточки и id label
+    card_id = os.environ.get("TRELLO_E2E_CARD_ID")
+    label_id = os.environ.get("TRELLO_E2E_LABEL_ID")
+    if not card_id or not label_id:
+        pytest.skip("e2e требует TRELLO_E2E_CARD_ID и TRELLO_E2E_LABEL_ID")
+    settings = _e2e_settings()
+
+    async with TrelloClient(settings) as client:
+        # When: вызывается add_label_to_card, затем get_cards
+        await client.add_label_to_card(card_id=card_id, label_id=label_id)
+        cards = await client.get_cards()
+
+    # Then: карточка содержит указанный label в поле labels
+    card_map = {card.id: card for card in cards}
+    assert card_id in card_map, f"Карточка {card_id} не найдена на доске"
+    label_ids = {lbl.id for lbl in card_map[card_id].labels}
+    assert label_id in label_ids, f"Label {label_id} не найден на карточке {card_id}"
+
+
 async def test_tc_prd_01_4_card_changes_list() -> None:
     """TC-PRD-01-4 — Карточка реально меняет список (#инициатива-p7m3xw)."""
     # Given: реальная доска, карточка в списке A, известен id списка B

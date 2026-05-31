@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 _ALLOWED_POS_KEYWORDS = ("top", "bottom")
 
@@ -93,9 +93,15 @@ class UpdateCardArgs(_ArgsModel):
         default=None, min_length=1, description="Новый заголовок (опционально)."
     )
     desc: str | None = Field(default=None, description="Новое описание (опционально).")
-    closed: bool | None = Field(
-        default=None, description="Архивировать (True) / разархивировать (False)."
+    due: DueDate | None = Field(
+        default=None, description="Срок выполнения в ISO-формате (опционально)."
     )
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> UpdateCardArgs:
+        if self.name is None and self.desc is None and self.due is None:
+            raise ValueError("Необходимо передать хотя бы одно из полей: name, desc, due")
+        return self
 
 
 class GetLabelsArgs(_ArgsModel):
@@ -118,6 +124,13 @@ class RemoveLabelFromCardArgs(_ArgsModel):
 
     card_id: str = Field(min_length=1, description="Идентификатор карточки.")
     label_id: str = Field(min_length=1, description="Идентификатор снимаемого label.")
+
+
+class UpdatePositionArgs(_ArgsModel):
+    """Аргументы инструмента update_position."""
+
+    card_id: str = Field(min_length=1, description="Идентификатор карточки.")
+    pos: Position = Field(description="Позиция: 'top', 'bottom' или неотрицательное число.")
 
 
 class AddCommentArgs(_ArgsModel):

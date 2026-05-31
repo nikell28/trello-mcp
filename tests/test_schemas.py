@@ -13,6 +13,8 @@ from trello_mcp.schemas import (
     AddCommentArgs,
     CreateCardArgs,
     MoveCardArgs,
+    UpdateCardArgs,
+    UpdatePositionArgs,
 )
 
 
@@ -85,3 +87,39 @@ def test_tc_nap_03_3_invalid_pos_rejected() -> None:
     """TC-NAP-03-3 — Невалидное значение pos отклоняется (допустимы top, bottom, число)."""
     with pytest.raises(ValidationError):
         CreateCardArgs(list_id="l1", name="Задача", pos="middle")
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-01: update_card validation (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+
+def test_tc_obn_01_3_update_card_without_fields_rejected() -> None:
+    """TC-OBN-01-3 — Вызов без единого поля отклоняется валидацией."""
+    with pytest.raises(ValidationError):
+        UpdateCardArgs(card_id="c1")
+
+
+def test_tc_obn_01_3_update_card_with_name_accepted() -> None:
+    """TC-OBN-01-3 вспомогательный — с name валидация проходит."""
+    args = UpdateCardArgs(card_id="c1", name="Новое имя")
+    assert args.name == "Новое имя"
+    assert args.due is None
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-05: update_position validation (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+
+def test_tc_obn_05_2_update_position_invalid_pos_rejected() -> None:
+    """TC-OBN-05-2 — Невалидное значение pos отклоняется валидацией."""
+    with pytest.raises(ValidationError):
+        UpdatePositionArgs(card_id="c1", pos="середина")
+
+
+def test_tc_obn_05_2_update_position_valid_pos_accepted() -> None:
+    """TC-OBN-05-2 вспомогательный — допустимые значения pos принимаются."""
+    assert UpdatePositionArgs(card_id="c1", pos="top").pos == "top"
+    assert UpdatePositionArgs(card_id="c1", pos="bottom").pos == "bottom"
+    assert UpdatePositionArgs(card_id="c1", pos=42).pos == 42.0

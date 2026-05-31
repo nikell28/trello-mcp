@@ -1,4 +1,4 @@
-"""Smoke-тест сервера: импортируется, FastMCP создаётся, ровно 9 инструментов."""
+"""Smoke-тест сервера: импортируется, FastMCP создаётся, ровно 10 инструментов."""
 
 from __future__ import annotations
 
@@ -13,14 +13,15 @@ EXPECTED_TOOLS = {
     "get_labels",
     "add_label_to_card",
     "remove_label_from_card",
+    "update_position",
     "add_comment",
 }
 
 
-async def test_server_registers_exactly_nine_tools() -> None:
+async def test_server_registers_exactly_ten_tools() -> None:
     tools = await mcp.list_tools()
     names = {tool.name for tool in tools}
-    assert len(tools) == 9
+    assert len(tools) == 10
     assert names == EXPECTED_TOOLS
 
 
