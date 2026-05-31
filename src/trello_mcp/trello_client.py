@@ -104,7 +104,22 @@ class TrelloClient:
         list_id: str,
         pos: str | float | None = None,
     ) -> Card:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+        """Переместить карточку в другой список. idList передаётся в теле запроса."""
+        data: dict[str, str | float] = {"idList": list_id}
+        if pos is not None:
+            data["pos"] = pos
+        response = await self._client.put(
+            f"/cards/{card_id}",
+            params=self._auth,
+            data=data,
+        )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(f"Карточка не найдена (404): card_id={card_id!r}.")
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        return Card.model_validate(response.json())
 
     async def update_card(
         self,

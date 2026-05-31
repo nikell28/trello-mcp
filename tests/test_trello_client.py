@@ -358,3 +358,67 @@ async def test_tc_nap_03_2_without_pos_field_not_sent(
     # Then: поле pos отсутствует в запросе
     params = dict(route.calls.last.request.url.params)
     assert "pos" not in params
+
+
+# ---------------------------------------------------------------------------
+# TC-PRD-01: move_card — перемещение карточки (#инициатива-p7m3xw)
+# ---------------------------------------------------------------------------
+
+_MOVED_CARD_RESPONSE = {
+    "id": "card-abc",
+    "name": "Тестовая карточка",
+    "idList": "list-B",
+    "desc": "",
+    "pos": 65536.0,
+    "closed": False,
+    "url": "https://trello.com/c/card-abc",
+    "labels": [],
+}
+
+
+async def test_tc_prd_01_1_card_moved_via_id_list(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-PRD-01-1 — Карточка перемещается через смену idList."""
+    # Given: замокан PUT /cards/{id}
+    route = respx_mock.put("/cards/card-abc").mock(
+        return_value=httpx.Response(200, json=_MOVED_CARD_RESPONSE)
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается move_card с id карточки и новым idList
+        card = await client.move_card(card_id="card-abc", list_id="list-B")
+    # Then: запрос уходит на /cards/{id} с полем idList в теле
+    assert route.called
+    body = dict(httpx.QueryParams(route.calls.last.request.content))
+    assert body["idList"] == "list-B"
+    assert card.id_list == "list-B"
+
+
+async def test_tc_prd_01_2_nonexistent_card_returns_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-PRD-01-2 — Несуществующая карточка (404) возвращает читаемое сообщение."""
+    # Given: замокан API, возвращает 404
+    respx_mock.put("/cards/nonexistent").mock(
+        return_value=httpx.Response(404, text="Card not found")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloNotFoundError с читаемым сообщением
+        with pytest.raises(TrelloNotFoundError) as exc_info:
+            await client.move_card(card_id="nonexistent", list_id="list-B")
+    assert str(exc_info.value)
+
+
+async def test_tc_prd_01_3_nonexistent_list_returns_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-PRD-01-3 — Несуществующий целевой список (400) возвращает читаемое сообщение."""
+    # Given: замокан API, возвращает 400 на невалидный idList
+    respx_mock.put("/cards/card-abc").mock(
+        return_value=httpx.Response(400, text="invalid value for idList")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloAPIError с читаемым сообщением
+        with pytest.raises(TrelloAPIError) as exc_info:
+            await client.move_card(card_id="card-abc", list_id="nonexistent-list")
+    assert str(exc_info.value)

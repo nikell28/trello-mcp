@@ -99,14 +99,14 @@ async def create_card(
 
 
 @mcp.tool()
-def move_card(
+async def move_card(
     card_id: Annotated[str, Field(description="Идентификатор перемещаемой карточки.")],
     list_id: Annotated[str, Field(description="Идентификатор списка назначения.")],
     pos: Annotated[
         str | float | None,
         Field(description="Позиция в новом списке: 'top', 'bottom' или число."),
     ] = None,
-) -> dict[str, str]:
+) -> dict[str, str] | str:
     """Переместить карточку в другой список (и опционально на позицию).
 
     Аргументы:
@@ -115,7 +115,13 @@ def move_card(
         pos: позиция в новом списке — 'top', 'bottom' или число.
     """
     schemas.MoveCardArgs(card_id=card_id, list_id=list_id, pos=pos)
-    return _stub("move_card")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            card = await client.move_card(card_id=card_id, list_id=list_id, pos=pos)
+        return {"id": card.id, "idList": card.id_list}
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()
