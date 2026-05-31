@@ -1,8 +1,8 @@
-"""FastMCP-сервер: регистрация 9 инструментов управления доской Trello.
+"""FastMCP-сервер: регистрация 10 инструментов управления доской Trello.
 
-Спринт 1: get_lists и get_cards реализованы — вызывают TrelloClient и
-оборачивают ошибки в читаемый текст. Остальные инструменты остаются
-заглушками. Конфиг и клиент создаются внутри каждого вызова инструмента,
+Эпик 4 (#инициатива-e4u7qx): реализованы update_card, get_labels,
+add_label_to_card, remove_label_from_card, update_position.
+Конфиг и клиент создаются внутри каждого вызова инструмента,
 чтобы сервер мог импортироваться без реальных кредов Trello.
 """
 
@@ -125,43 +125,56 @@ async def move_card(
 
 
 @mcp.tool()
-def update_card(
+async def update_card(
     card_id: Annotated[str, Field(description="Идентификатор обновляемой карточки.")],
     name: Annotated[str | None, Field(description="Новый заголовок (опционально).")] = None,
     desc: Annotated[str | None, Field(description="Новое описание (опционально).")] = None,
-    closed: Annotated[
-        bool | None,
-        Field(description="Архивировать (true) или разархивировать (false) карточку."),
+    due: Annotated[
+        str | None,
+        Field(description="Срок выполнения в ISO-формате, например 2026-06-01T12:00:00."),
     ] = None,
-) -> dict[str, str]:
-    """Обновить поля карточки: заголовок, описание, статус архива.
+) -> dict[str, str | None] | str:
+    """Обновить поля карточки: заголовок, описание, срок выполнения.
 
     Аргументы:
         card_id: обновляемая карточка.
         name: новый заголовок (если задан, не пустой).
         desc: новое описание.
-        closed: true — архивировать, false — разархивировать.
+        due: срок выполнения в ISO-формате.
+
+    Необходимо передать хотя бы одно из полей name, desc, due.
     """
-    schemas.UpdateCardArgs(card_id=card_id, name=name, desc=desc, closed=closed)
-    return _stub("update_card")
+    schemas.UpdateCardArgs(card_id=card_id, name=name, desc=desc, due=due)
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            card = await client.update_card(card_id=card_id, name=name, desc=desc, due=due)
+        return {"id": card.id, "name": card.name, "idList": card.id_list}
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()
-def get_labels() -> dict[str, str]:
+async def get_labels() -> list[dict[str, str | None]] | str:
     """Вернуть все метки (labels) управляемой доски Trello.
 
     Доска берётся из конфигурации сервера. Параметров нет. Используй, чтобы
     узнать доступные id меток перед навешиванием на карточку.
     """
-    schemas.GetLabelsArgs()
-    return _stub("get_labels")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            labels = await client.get_labels()
+        return [{"id": lbl.id, "name": lbl.name, "color": lbl.color} for lbl in labels]
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()
-def add_label_to_card(
+async def add_label_to_card(
     card_id: Annotated[str, Field(description="Идентификатор карточки.")],
     label_id: Annotated[str, Field(description="Идентификатор навешиваемого label.")],
-) -> dict[str, str]:
+) -> dict[str, str] | str:
     """Навесить метку (label) на карточку.
 
     Аргументы:
@@ -169,14 +182,20 @@ def add_label_to_card(
         label_id: идентификатор label, который нужно навесить.
     """
     schemas.AddLabelToCardArgs(card_id=card_id, label_id=label_id)
-    return _stub("add_label_to_card")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            result = await client.add_label_to_card(card_id=card_id, label_id=label_id)
+        return result
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()
-def remove_label_from_card(
+async def remove_label_from_card(
     card_id: Annotated[str, Field(description="Идентификатор карточки.")],
     label_id: Annotated[str, Field(description="Идентификатор снимаемого label.")],
-) -> dict[str, str]:
+) -> dict[str, str] | str:
     """Снять метку (label) с карточки.
 
     Аргументы:
@@ -184,7 +203,37 @@ def remove_label_from_card(
         label_id: идентификатор label, который нужно снять.
     """
     schemas.RemoveLabelFromCardArgs(card_id=card_id, label_id=label_id)
-    return _stub("remove_label_from_card")
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            result = await client.remove_label_from_card(card_id=card_id, label_id=label_id)
+        return result
+    except TrelloError as exc:
+        return str(exc)
+
+
+@mcp.tool()
+async def update_position(
+    card_id: Annotated[str, Field(description="Идентификатор карточки.")],
+    pos: Annotated[
+        str | float,
+        Field(description="Позиция: 'top', 'bottom' или неотрицательное число."),
+    ],
+) -> dict[str, str] | str:
+    """Изменить позицию карточки в её списке.
+
+    Аргументы:
+        card_id: карточка.
+        pos: позиция — 'top', 'bottom' или неотрицательное число.
+    """
+    schemas.UpdatePositionArgs(card_id=card_id, pos=pos)
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            card = await client.update_position(card_id=card_id, pos=pos)
+        return {"id": card.id, "idList": card.id_list, "pos": str(card.pos)}
+    except TrelloError as exc:
+        return str(exc)
 
 
 @mcp.tool()

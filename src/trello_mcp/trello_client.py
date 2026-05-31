@@ -126,18 +126,89 @@ class TrelloClient:
         card_id: str,
         name: str | None = None,
         desc: str | None = None,
-        closed: bool | None = None,
+        due: str | None = None,
     ) -> Card:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+        """Обновить поля карточки. Отправляются только переданные (не None) поля."""
+        data: dict[str, str] = {}
+        if name is not None:
+            data["name"] = name
+        if desc is not None:
+            data["desc"] = desc
+        if due is not None:
+            data["due"] = due
+        response = await self._client.put(
+            f"/cards/{card_id}",
+            params=self._auth,
+            data=data,
+        )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(f"Карточка не найдена (404): card_id={card_id!r}.")
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        return Card.model_validate(response.json())
 
     async def get_labels(self) -> list[Label]:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+        """Получить все labels управляемой доски."""
+        response = await self._client.get(
+            f"/boards/{self._settings.trello_board_id}/labels",
+            params=self._auth,
+        )
+        self._raise_for_status(response)
+        return [Label.model_validate(item) for item in response.json()]
 
-    async def add_label_to_card(self, card_id: str, label_id: str) -> Card:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+    async def add_label_to_card(self, card_id: str, label_id: str) -> dict[str, str]:
+        """Навесить label на карточку. Идемпотентно."""
+        response = await self._client.post(
+            f"/cards/{card_id}/idLabels",
+            params=self._auth,
+            data={"value": label_id},
+        )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(
+                f"Карточка или label не найдены (404): card_id={card_id!r}, label_id={label_id!r}."
+            )
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        return {"status": "ok", "card_id": card_id, "label_id": label_id}
 
-    async def remove_label_from_card(self, card_id: str, label_id: str) -> Card:
-        raise NotImplementedError("Stub: реализуется в Спринте 1")
+    async def remove_label_from_card(self, card_id: str, label_id: str) -> dict[str, str]:
+        """Снять label с карточки. 404 возвращается как читаемый результат (не исключение)."""
+        response = await self._client.delete(
+            f"/cards/{card_id}/idLabels/{label_id}",
+            params=self._auth,
+        )
+        if response.status_code == 404:
+            return {
+                "status": "not_found",
+                "detail": (
+                    f"Label {label_id!r} не найден на карточке {card_id!r}"
+                    " или карточка не существует."
+                ),
+            }
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        return {"status": "ok", "card_id": card_id, "label_id": label_id}
+
+    async def update_position(self, card_id: str, pos: str | float) -> Card:
+        """Изменить позицию карточки в её списке."""
+        response = await self._client.put(
+            f"/cards/{card_id}",
+            params=self._auth,
+            data={"pos": str(pos)},
+        )
+        if response.status_code == 404:
+            raise TrelloNotFoundError(f"Карточка не найдена (404): card_id={card_id!r}.")
+        if response.status_code >= 400:
+            raise TrelloAPIError(
+                f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
+            )
+        return Card.model_validate(response.json())
 
     async def add_comment(self, card_id: str, text: str) -> dict[str, str]:
         raise NotImplementedError("Stub: реализуется в Спринте 1")

@@ -422,3 +422,252 @@ async def test_tc_prd_01_3_nonexistent_list_returns_readable_message(
         with pytest.raises(TrelloAPIError) as exc_info:
             await client.move_card(card_id="card-abc", list_id="nonexistent-list")
     assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-01: update_card (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+_UPDATE_CARD_RESPONSE = {
+    "id": "c1",
+    "name": "Обновлённая карточка",
+    "idList": "l1",
+    "desc": "",
+    "pos": 65536.0,
+    "closed": False,
+    "url": None,
+    "labels": [],
+}
+
+
+async def test_tc_obn_01_1_update_card_name_body_contains_only_name(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-01-1 — Обновление name: тело запроса содержит только name."""
+    # Given: замокан PUT /cards/{id}
+    route = respx_mock.put("/cards/c1").mock(
+        return_value=httpx.Response(200, json=_UPDATE_CARD_RESPONSE)
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается update_card с новым name
+        await client.update_card(card_id="c1", name="Обновлённая карточка")
+    # Then: тело запроса содержит только name
+    assert route.called
+    body = dict(httpx.QueryParams(route.calls.last.request.content))
+    assert body["name"] == "Обновлённая карточка"
+    assert "desc" not in body
+    assert "due" not in body
+
+
+async def test_tc_obn_01_2_update_card_partial_only_desc_no_name_due(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-01-2 — Частичное обновление: тело содержит desc и не содержит name, due."""
+    # Given: замокан API
+    route = respx_mock.put("/cards/c1").mock(
+        return_value=httpx.Response(200, json=_UPDATE_CARD_RESPONSE)
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается update_card только с desc
+        await client.update_card(card_id="c1", desc="Новое описание")
+    # Then: тело содержит desc и не содержит name, due
+    body = dict(httpx.QueryParams(route.calls.last.request.content))
+    assert body["desc"] == "Новое описание"
+    assert "name" not in body
+    assert "due" not in body
+
+
+async def test_tc_obn_01_4_update_card_404_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-01-4 — Несуществующая карточка (404) возвращает читаемое сообщение."""
+    # Given: замокан API, 404
+    respx_mock.put("/cards/nonexistent").mock(
+        return_value=httpx.Response(404, text="Card not found")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloNotFoundError с читаемым сообщением
+        with pytest.raises(TrelloNotFoundError) as exc_info:
+            await client.update_card(card_id="nonexistent", name="test")
+    assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-02: get_labels (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+
+async def test_tc_obn_02_1_get_labels_returns_all_with_id_name_color(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-02-1 — Возврат всех labels доски с id, name, color."""
+    # Given: замокан GET /boards/{id}/labels, возвращает 4 label
+    respx_mock.get(f"/boards/{BOARD_ID}/labels").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": "l1", "name": "Дизайн", "color": "blue"},
+                {"id": "l2", "name": "Бэкенд", "color": "green"},
+                {"id": "l3", "name": "Фронтенд", "color": "red"},
+                {"id": "l4", "name": "Тесты", "color": "yellow"},
+            ],
+        )
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается get_labels
+        labels = await client.get_labels()
+    # Then: возвращаются 4 label, каждый с id, name, color
+    assert len(labels) == 4
+    assert labels[0].id == "l1"
+    assert labels[0].name == "Дизайн"
+    assert labels[0].color == "blue"
+    assert labels[3].id == "l4"
+
+
+async def test_tc_obn_02_2_get_labels_401_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-02-2 — Ошибка API (401) возвращается читаемым текстом."""
+    # Given: замокан API, 401
+    respx_mock.get(f"/boards/{BOARD_ID}/labels").mock(
+        return_value=httpx.Response(401, text="Unauthorized")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloAuthError с читаемым сообщением
+        with pytest.raises(TrelloAuthError) as exc_info:
+            await client.get_labels()
+    assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-03: add_label_to_card (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+
+async def test_tc_obn_03_1_add_label_request_goes_to_correct_endpoint(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-03-1 — Label навешивается: запрос уходит на /cards/{id}/idLabels с value=id label."""
+    # Given: замокан POST /cards/{id}/idLabels
+    route = respx_mock.post("/cards/c1/idLabels").mock(
+        return_value=httpx.Response(200, text='["lbl1"]')
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается add_label_to_card с id карточки и id label
+        await client.add_label_to_card(card_id="c1", label_id="lbl1")
+    # Then: запрос уходит на /cards/{id}/idLabels с value = id label
+    assert route.called
+    body = dict(httpx.QueryParams(route.calls.last.request.content))
+    assert body["value"] == "lbl1"
+
+
+async def test_tc_obn_03_2_add_label_repeat_idempotent(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-03-2 — Повторное навешивание идемпотентно."""
+    # Given: замокан API, Trello возвращает 200 оба раза
+    respx_mock.post("/cards/c1/idLabels").mock(return_value=httpx.Response(200, text='["lbl1"]'))
+    async with TrelloClient(settings) as client:
+        # When: вызывается add_label дважды с тем же id label
+        result1 = await client.add_label_to_card(card_id="c1", label_id="lbl1")
+        result2 = await client.add_label_to_card(card_id="c1", label_id="lbl1")
+    # Then: инструмент не падает, оба вызова возвращают результат
+    assert result1 is not None
+    assert result2 is not None
+
+
+async def test_tc_obn_03_3_add_label_nonexistent_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-03-3 — Несуществующий label id возвращает читаемое сообщение."""
+    # Given: замокан API, 404
+    respx_mock.post("/cards/c1/idLabels").mock(return_value=httpx.Response(404, text="Not Found"))
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloNotFoundError с читаемым сообщением
+        with pytest.raises(TrelloNotFoundError) as exc_info:
+            await client.add_label_to_card(card_id="c1", label_id="nonexistent")
+    assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-04: remove_label_from_card (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+
+async def test_tc_obn_04_1_remove_label_delete_correct_path(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-04-1 — Label снимается: DELETE на корректный путь с обоими id."""
+    # Given: замокан DELETE /cards/{id}/idLabels/{idLabel}
+    route = respx_mock.delete("/cards/c1/idLabels/lbl1").mock(return_value=httpx.Response(200))
+    async with TrelloClient(settings) as client:
+        # When: вызывается remove_label_from_card с id карточки и id label
+        await client.remove_label_from_card(card_id="c1", label_id="lbl1")
+    # Then: уходит DELETE на корректный путь
+    assert route.called
+
+
+async def test_tc_obn_04_2_remove_label_missing_no_crash(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-04-2 — Снятие отсутствующего label не вызывает падение."""
+    # Given: замокан API, label не на карточке (Trello возвращает 404)
+    respx_mock.delete("/cards/c1/idLabels/lbl1").mock(return_value=httpx.Response(404))
+    async with TrelloClient(settings) as client:
+        # When: вызывается remove_label_from_card
+        result = await client.remove_label_from_card(card_id="c1", label_id="lbl1")
+    # Then: инструмент возвращает читаемый результат, не бросает необработанное исключение
+    assert result is not None
+    assert isinstance(result, dict)
+
+
+async def test_tc_obn_04_3_remove_label_nonexistent_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-04-3 — Несуществующий label id возвращает читаемое сообщение."""
+    # Given: замокан API, ошибка (400)
+    respx_mock.delete("/cards/c1/idLabels/nonexistent").mock(
+        return_value=httpx.Response(400, text="invalid value")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloAPIError с читаемым сообщением
+        with pytest.raises(TrelloAPIError) as exc_info:
+            await client.remove_label_from_card(card_id="c1", label_id="nonexistent")
+    assert str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# TC-OBN-05: update_position (#инициатива-e4u7qx)
+# ---------------------------------------------------------------------------
+
+
+async def test_tc_obn_05_1_update_position_body_contains_pos(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-05-1 — Позиция обновляется: тело запроса содержит pos=bottom."""
+    # Given: замокан PUT /cards/{id}
+    route = respx_mock.put("/cards/c1").mock(
+        return_value=httpx.Response(200, json=_UPDATE_CARD_RESPONSE)
+    )
+    async with TrelloClient(settings) as client:
+        # When: вызывается update_position с pos="bottom"
+        await client.update_position(card_id="c1", pos="bottom")
+    # Then: тело запроса содержит pos=bottom
+    assert route.called
+    body = dict(httpx.QueryParams(route.calls.last.request.content))
+    assert body["pos"] == "bottom"
+
+
+async def test_tc_obn_05_3_update_position_404_readable_message(
+    settings: Settings, respx_mock: respx.MockRouter
+) -> None:
+    """TC-OBN-05-3 — Несуществующая карточка (404) возвращает читаемое сообщение."""
+    # Given: замокан API, 404
+    respx_mock.put("/cards/nonexistent").mock(
+        return_value=httpx.Response(404, text="Card not found")
+    )
+    async with TrelloClient(settings) as client:
+        # When/Then: поднимается TrelloNotFoundError с читаемым сообщением
+        with pytest.raises(TrelloNotFoundError) as exc_info:
+            await client.update_position(card_id="nonexistent", pos="bottom")
+    assert str(exc_info.value)
