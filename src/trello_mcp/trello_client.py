@@ -87,7 +87,7 @@ class TrelloClient:
         pos: str | float | None = None,
     ) -> Card:
         """Создать карточку в указанном списке. Опциональные поля не отправляются если None."""
-        params: dict[str, object] = {**self._auth, "idList": list_id, "name": name}
+        params: dict[str, str | float] = {**self._auth, "idList": list_id, "name": name}
         if desc is not None:
             params["desc"] = desc
         if due is not None:
