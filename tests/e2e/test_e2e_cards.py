@@ -42,3 +42,26 @@ async def test_tc_nap_01_5_card_appears_on_board() -> None:
     # Then: созданная карточка присутствует в выдаче get_cards
     card_ids = {card.id for card in cards}
     assert created.id in card_ids, f"Карточка {created.id} не найдена на доске"
+
+
+async def test_tc_prd_01_4_card_changes_list() -> None:
+    """TC-PRD-01-4 — Карточка реально меняет список (#инициатива-p7m3xw)."""
+    # Given: реальная доска, карточка в списке A, известен id списка B
+    list_id_a = os.environ.get("TRELLO_E2E_LIST_ID")
+    list_id_b = os.environ.get("TRELLO_E2E_LIST_ID_B")
+    if not list_id_a or not list_id_b:
+        pytest.skip("e2e требует TRELLO_E2E_LIST_ID и TRELLO_E2E_LIST_ID_B")
+    settings = _e2e_settings()
+
+    async with TrelloClient(settings) as client:
+        created = await client.create_card(
+            list_id=list_id_a, name="E2E TC-PRD-01-4: move_card test"
+        )
+        # When: вызывается move_card в список B, затем get_cards
+        await client.move_card(card_id=created.id, list_id=list_id_b)
+        cards = await client.get_cards()
+
+    # Then: карточка имеет idList = список B
+    card_map = {card.id: card for card in cards}
+    assert created.id in card_map, f"Карточка {created.id} не найдена на доске"
+    assert card_map[created.id].id_list == list_id_b
