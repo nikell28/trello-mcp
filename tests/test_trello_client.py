@@ -137,8 +137,7 @@ async def test_tc_obz_02_1_returns_all_cards(
         return_value=httpx.Response(
             200,
             json=[
-                {"id": f"c{i}", "name": f"Card {i}", "idList": "l1", "labels": []}
-                for i in range(5)
+                {"id": f"c{i}", "name": f"Card {i}", "idList": "l1", "labels": []} for i in range(5)
             ],
         )
     )

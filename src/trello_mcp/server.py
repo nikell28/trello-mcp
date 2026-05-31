@@ -92,9 +92,7 @@ async def create_card(
     try:
         settings = get_settings()
         async with TrelloClient(settings) as client:
-            card = await client.create_card(
-                list_id=list_id, name=name, desc=desc, due=due, pos=pos
-            )
+            card = await client.create_card(list_id=list_id, name=name, desc=desc, due=due, pos=pos)
         return {"id": card.id, "name": card.name, "idList": card.id_list}
     except TrelloError as exc:
         return str(exc)
