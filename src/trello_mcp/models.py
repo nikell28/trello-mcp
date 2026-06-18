@@ -76,3 +76,12 @@ class CardBrief(BaseModel):
         default_factory=list,
         description="Метки, навешенные на карточку.",
     )
+
+
+class Board(BaseModel):
+    """Доска Trello."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(description="Идентификатор доски в Trello.")
+    name: str = Field(description="Имя (название) доски.")

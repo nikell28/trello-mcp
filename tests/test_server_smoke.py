@@ -1,10 +1,11 @@
-"""Smoke-тест сервера: импортируется, FastMCP создаётся, ровно 11 инструментов."""
+"""Smoke-тест сервера: импортируется, FastMCP создаётся, ровно 12 инструментов."""
 
 from __future__ import annotations
 
 from trello_mcp.server import mcp
 
 EXPECTED_TOOLS = {
+    "get_boards",
     "get_lists",
     "get_cards",
     "create_card",
@@ -19,10 +20,10 @@ EXPECTED_TOOLS = {
 }
 
 
-async def test_server_registers_exactly_eleven_tools() -> None:
+async def test_server_registers_exactly_twelve_tools() -> None:
     tools = await mcp.list_tools()
     names = {tool.name for tool in tools}
-    assert len(tools) == 11
+    assert len(tools) == 12
     assert names == EXPECTED_TOOLS
 
 
