@@ -31,6 +31,7 @@ def _resolve_board_id(board_id: str | None, settings: Settings) -> str:
         )
     return resolved
 
+
 _STUB_STATUS = "not_implemented"
 
 
