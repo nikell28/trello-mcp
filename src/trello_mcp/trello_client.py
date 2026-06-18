@@ -52,27 +52,25 @@ class TrelloClient:
                 "Ошибка авторизации Trello (401): проверьте TRELLO_API_KEY и TRELLO_TOKEN."
             )
         if response.status_code == 404:
-            raise TrelloNotFoundError(
-                f"Ресурс не найден (404): board_id={self._settings.trello_board_id!r}."
-            )
+            raise TrelloNotFoundError("Ресурс не найден (404). Проверьте корректность board_id.")
         if response.status_code >= 400:
             raise TrelloAPIError(
                 f"Ошибка Trello API ({response.status_code}): {response.text[:200]}"
             )
 
-    async def get_lists(self) -> list[List]:
-        """Получить все открытые списки (колонки) управляемой доски."""
+    async def get_lists(self, board_id: str) -> list[List]:
+        """Получить все открытые списки (колонки) указанной доски."""
         response = await self._client.get(
-            f"/boards/{self._settings.trello_board_id}/lists",
+            f"/boards/{board_id}/lists",
             params={**self._auth, "filter": "open"},
         )
         self._raise_for_status(response)
         return [List.model_validate(item) for item in response.json()]
 
-    async def get_cards(self) -> list[CardBrief]:
-        """Получить все карточки управляемой доски (урезанный набор полей)."""
+    async def get_cards(self, board_id: str) -> list[CardBrief]:
+        """Получить все карточки указанной доски (урезанный набор полей)."""
         response = await self._client.get(
-            f"/boards/{self._settings.trello_board_id}/cards",
+            f"/boards/{board_id}/cards",
             params={**self._auth, "fields": "id,name,idList,labels"},
         )
         self._raise_for_status(response)
@@ -149,10 +147,10 @@ class TrelloClient:
             )
         return Card.model_validate(response.json())
 
-    async def get_labels(self) -> list[Label]:
-        """Получить все labels управляемой доски."""
+    async def get_labels(self, board_id: str) -> list[Label]:
+        """Получить все labels указанной доски."""
         response = await self._client.get(
-            f"/boards/{self._settings.trello_board_id}/labels",
+            f"/boards/{board_id}/labels",
             params=self._auth,
         )
         self._raise_for_status(response)

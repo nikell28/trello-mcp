@@ -18,6 +18,15 @@ def test_settings_loaded_from_env(fake_env: dict[str, str]) -> None:
     assert settings.trello_board_id == fake_env["TRELLO_BOARD_ID"]
 
 
+def test_settings_board_id_optional(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TRELLO_BOARD_ID — необязательная переменная, Settings загружается без неё."""
+    monkeypatch.setenv("TRELLO_API_KEY", "key")
+    monkeypatch.setenv("TRELLO_TOKEN", "token")
+    monkeypatch.delenv("TRELLO_BOARD_ID", raising=False)
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.trello_board_id is None
+
+
 def test_settings_defaults(fake_env: dict[str, str]) -> None:
     settings = get_settings()
     assert settings.trello_api_base == "https://api.trello.com/1"
@@ -25,7 +34,7 @@ def test_settings_defaults(fake_env: dict[str, str]) -> None:
 
 
 def test_settings_missing_required_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    for key in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_BOARD_ID"):
+    for key in ("TRELLO_API_KEY", "TRELLO_TOKEN"):
         monkeypatch.delenv(key, raising=False)
     # Запрет чтения настоящего .env, чтобы тест не зависел от локального файла.
     with pytest.raises(ValidationError):

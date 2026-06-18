@@ -52,7 +52,7 @@ async def test_tc_obz_01_1_returns_all_lists(
         )
     )
     # When: вызывается инструмент get_lists
-    lists = await client.get_lists()
+    lists = await client.get_lists(board_id=BOARD_ID)
     # Then: возвращаются 3 списка, каждый содержит id и name
     assert len(lists) == 3
     assert all(lst.id and lst.name for lst in lists)
@@ -68,7 +68,7 @@ async def test_tc_obz_01_2_correct_url_and_auth(
     )
     async with TrelloClient(settings) as client:
         # When: вызывается get_lists
-        await client.get_lists()
+        await client.get_lists(board_id=BOARD_ID)
     # Then: запрос уходит на /boards/{board_id}/lists с key и token в query
     assert route.called
     params = dict(route.calls.last.request.url.params)
@@ -86,7 +86,7 @@ async def test_tc_obz_01_3_filter_open_in_request(
     )
     async with TrelloClient(settings) as client:
         # When: вызывается get_lists
-        await client.get_lists()
+        await client.get_lists(board_id=BOARD_ID)
     # Then: в запросе присутствует filter=open
     params = dict(route.calls.last.request.url.params)
     assert params["filter"] == "open"
@@ -103,7 +103,7 @@ async def test_tc_obz_01_4_401_raises_auth_error(
     async with TrelloClient(settings) as client:
         # When/Then: поднимается TrelloAuthError, не бросается необработанное исключение
         with pytest.raises(TrelloAuthError) as exc_info:
-            await client.get_lists()
+            await client.get_lists(board_id=BOARD_ID)
     # Сообщение читаемое
     assert str(exc_info.value)
 
@@ -119,7 +119,7 @@ async def test_tc_obz_01_5_404_raises_not_found_error(
     async with TrelloClient(settings) as client:
         # When/Then: поднимается TrelloNotFoundError, не бросается необработанное исключение
         with pytest.raises(TrelloNotFoundError) as exc_info:
-            await client.get_lists()
+            await client.get_lists(board_id=BOARD_ID)
     assert str(exc_info.value)
 
 
@@ -143,7 +143,7 @@ async def test_tc_obz_02_1_returns_all_cards(
     )
     async with TrelloClient(settings) as client:
         # When: вызывается get_cards
-        cards = await client.get_cards()
+        cards = await client.get_cards(board_id=BOARD_ID)
     # Then: возвращаются 5 карточек
     assert len(cards) == 5
 
@@ -174,7 +174,7 @@ async def test_tc_obz_02_2_only_required_fields_returned(
     )
     async with TrelloClient(settings) as client:
         # When: вызывается get_cards
-        cards = await client.get_cards()
+        cards = await client.get_cards(board_id=BOARD_ID)
     # Then: каждая карточка содержит только id, name, idList, labels
     card_dict = cards[0].model_dump(by_alias=True)
     assert set(card_dict.keys()) == {"id", "name", "idList", "labels"}
@@ -203,7 +203,7 @@ async def test_tc_obz_02_3_labels_included(
     )
     async with TrelloClient(settings) as client:
         # When: вызывается get_cards
-        cards = await client.get_cards()
+        cards = await client.get_cards(board_id=BOARD_ID)
     # Then: поле labels карточки содержит оба label
     assert len(cards[0].labels) == 2
 
@@ -219,7 +219,7 @@ async def test_tc_obz_02_4_500_raises_api_error(
     async with TrelloClient(settings) as client:
         # When/Then: поднимается TrelloAPIError, не бросается необработанное исключение
         with pytest.raises(TrelloAPIError) as exc_info:
-            await client.get_cards()
+            await client.get_cards(board_id=BOARD_ID)
     assert str(exc_info.value)
 
 
@@ -515,7 +515,7 @@ async def test_tc_obn_02_1_get_labels_returns_all_with_id_name_color(
     )
     async with TrelloClient(settings) as client:
         # When: вызывается get_labels
-        labels = await client.get_labels()
+        labels = await client.get_labels(board_id=BOARD_ID)
     # Then: возвращаются 4 label, каждый с id, name, color
     assert len(labels) == 4
     assert labels[0].id == "l1"
@@ -535,7 +535,7 @@ async def test_tc_obn_02_2_get_labels_401_readable_message(
     async with TrelloClient(settings) as client:
         # When/Then: поднимается TrelloAuthError с читаемым сообщением
         with pytest.raises(TrelloAuthError) as exc_info:
-            await client.get_labels()
+            await client.get_labels(board_id=BOARD_ID)
     assert str(exc_info.value)
 
 

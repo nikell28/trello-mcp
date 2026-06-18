@@ -64,7 +64,12 @@ class _ArgsModel(BaseModel):
 
 
 class GetCardsArgs(_ArgsModel):
-    """Аргументы инструмента get_cards (нет параметров — доска берётся из конфига)."""
+    """Аргументы инструмента get_cards."""
+
+    board_id: str | None = Field(
+        default=None,
+        description="ID доски. Если не передан — используется TRELLO_BOARD_ID из конфига.",
+    )
 
 
 class CreateCardArgs(_ArgsModel):
@@ -105,11 +110,21 @@ class UpdateCardArgs(_ArgsModel):
 
 
 class GetLabelsArgs(_ArgsModel):
-    """Аргументы инструмента get_labels (нет параметров — доска берётся из конфига)."""
+    """Аргументы инструмента get_labels."""
+
+    board_id: str | None = Field(
+        default=None,
+        description="ID доски. Если не передан — используется TRELLO_BOARD_ID из конфига.",
+    )
 
 
 class GetListsArgs(_ArgsModel):
-    """Аргументы инструмента get_lists (нет параметров — доска берётся из конфига)."""
+    """Аргументы инструмента get_lists."""
+
+    board_id: str | None = Field(
+        default=None,
+        description="ID доски. Если не передан — используется TRELLO_BOARD_ID из конфига.",
+    )
 
 
 class AddLabelToCardArgs(_ArgsModel):

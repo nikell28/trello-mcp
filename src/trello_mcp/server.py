@@ -14,11 +14,23 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from trello_mcp import schemas
-from trello_mcp.config import get_settings
+from trello_mcp.config import Settings, get_settings
 from trello_mcp.errors import TrelloError
 from trello_mcp.trello_client import TrelloClient
 
 mcp = FastMCP("trello-mcp")
+
+
+def _resolve_board_id(board_id: str | None, settings: Settings) -> str:
+    """Вернуть board_id: явный параметр → дефолт из конфига → ошибка."""
+    resolved = board_id or settings.trello_board_id
+    if not resolved:
+        raise ValueError(
+            "board_id не передан и TRELLO_BOARD_ID не задан в конфигурации. "
+            "Передайте board_id явно или задайте переменную окружения."
+        )
+    return resolved
+
 
 _STUB_STATUS = "not_implemented"
 
@@ -58,34 +70,62 @@ def _sort_comments_by_created_at(comments: list[dict[str, str]]) -> list[dict[st
 
 
 @mcp.tool()
-async def get_lists() -> list[dict[str, str]] | str:
-    """Вернуть все открытые списки (колонки) управляемой доски Trello.
+async def get_lists(
+    board_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "ID доски Trello. Если не передан — используется TRELLO_BOARD_ID из конфига."
+            )
+        ),
+    ] = None,
+) -> list[dict[str, str]] | str:
+    """Вернуть все открытые списки (колонки) доски Trello.
 
-    Доска берётся из конфигурации сервера (TRELLO_BOARD_ID). Параметров нет.
+    Аргументы:
+        board_id: идентификатор доски. Если не передан — используется TRELLO_BOARD_ID из конфига.
+
     Используй, чтобы увидеть структуру доски перед действиями над карточками.
     """
     try:
         settings = get_settings()
+        resolved_board_id = _resolve_board_id(board_id, settings)
         async with TrelloClient(settings) as client:
-            lists = await client.get_lists()
+            lists = await client.get_lists(board_id=resolved_board_id)
         return [{"id": lst.id, "name": lst.name} for lst in lists]
+    except ValueError as exc:
+        return str(exc)
     except TrelloError as exc:
         return str(exc)
 
 
 @mcp.tool()
-async def get_cards() -> list[dict[str, object]] | str:
-    """Вернуть все карточки управляемой доски Trello (урезанный набор полей).
+async def get_cards(
+    board_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "ID доски Trello. Если не передан — используется TRELLO_BOARD_ID из конфига."
+            )
+        ),
+    ] = None,
+) -> list[dict[str, object]] | str:
+    """Вернуть все карточки доски Trello (урезанный набор полей).
 
-    Доска берётся из конфигурации сервера (TRELLO_BOARD_ID). Параметров нет.
+    Аргументы:
+        board_id: идентификатор доски. Если не передан — используется TRELLO_BOARD_ID из конфига.
+
     Каждая карточка содержит: id, name, idList, labels.
     Используй перед созданием карточки, чтобы избежать дублей.
     """
     try:
         settings = get_settings()
+        resolved_board_id = _resolve_board_id(board_id, settings)
         async with TrelloClient(settings) as client:
-            cards = await client.get_cards()
+            cards = await client.get_cards(board_id=resolved_board_id)
         return [card.model_dump(by_alias=True) for card in cards]
+    except ValueError as exc:
+        return str(exc)
     except TrelloError as exc:
         return str(exc)
 
@@ -180,17 +220,31 @@ async def update_card(
 
 
 @mcp.tool()
-async def get_labels() -> list[dict[str, str | None]] | str:
-    """Вернуть все метки (labels) управляемой доски Trello.
+async def get_labels(
+    board_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "ID доски Trello. Если не передан — используется TRELLO_BOARD_ID из конфига."
+            )
+        ),
+    ] = None,
+) -> list[dict[str, str | None]] | str:
+    """Вернуть все метки (labels) доски Trello.
 
-    Доска берётся из конфигурации сервера. Параметров нет. Используй, чтобы
-    узнать доступные id меток перед навешиванием на карточку.
+    Аргументы:
+        board_id: идентификатор доски. Если не передан — используется TRELLO_BOARD_ID из конфига.
+
+    Используй, чтобы узнать доступные id меток перед навешиванием на карточку.
     """
     try:
         settings = get_settings()
+        resolved_board_id = _resolve_board_id(board_id, settings)
         async with TrelloClient(settings) as client:
-            labels = await client.get_labels()
+            labels = await client.get_labels(board_id=resolved_board_id)
         return [{"id": lbl.id, "name": lbl.name, "color": lbl.color} for lbl in labels]
+    except ValueError as exc:
+        return str(exc)
     except TrelloError as exc:
         return str(exc)
 

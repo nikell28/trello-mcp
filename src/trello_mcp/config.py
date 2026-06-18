@@ -1,9 +1,10 @@
 """Конфигурация сервера: загрузка env через pydantic-settings.
 
-Обязательные переменные (TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_BOARD_ID) не имеют
-значений по умолчанию — при их отсутствии инициализация Settings падает с явной
-ошибкой валидации. Логирование настраивается на stderr, потому что stdout в
-stdio-режиме занят JSON-RPC.
+Обязательные переменные (TRELLO_API_KEY, TRELLO_TOKEN) не имеют значений по
+умолчанию — при их отсутствии инициализация Settings падает с явной ошибкой
+валидации. TRELLO_BOARD_ID — опциональная переменная: если не задана, board_id
+нужно передавать в каждый инструмент явно. Логирование настраивается на stderr,
+потому что stdout в stdio-режиме занят JSON-RPC.
 """
 
 from __future__ import annotations
@@ -27,7 +28,13 @@ class Settings(BaseSettings):
 
     trello_api_key: str = Field(description="Trello API key.")
     trello_token: str = Field(description="Trello API token.")
-    trello_board_id: str = Field(description="Идентификатор доски, которой управляет сервер.")
+    trello_board_id: str | None = Field(
+        default=None,
+        description=(
+            "Идентификатор доски по умолчанию. Опционально: можно передавать"
+            " board_id в каждый инструмент явно."
+        ),
+    )
 
     trello_api_base: str = Field(
         default="https://api.trello.com/1",

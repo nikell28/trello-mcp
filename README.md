@@ -47,12 +47,29 @@ uv sync --frozen
 | ------------------ | :---: | ----------------------------- | ------------------------------ |
 | `TRELLO_API_KEY`   |   ✓   | —                             | API key Trello                 |
 | `TRELLO_TOKEN`     |   ✓   | —                             | API token Trello               |
-| `TRELLO_BOARD_ID`  |   ✓   | —                             | Идентификатор доски             |
+| `TRELLO_BOARD_ID`  |       | `None`                        | Дефолтная доска (опционально)   |
 | `TRELLO_API_BASE`  |       | `https://api.trello.com/1`    | Базовый URL REST API            |
 | `LOG_LEVEL`        |       | `INFO`                        | Уровень логирования             |
 
-При отсутствии любой обязательной переменной сервер падает с явной ошибкой
-валидации.
+При отсутствии обязательных переменных (`TRELLO_API_KEY`, `TRELLO_TOKEN`) сервер
+падает с явной ошибкой валидации. `TRELLO_BOARD_ID` — необязательная переменная:
+если не задана, `board_id` нужно передавать в инструменты `get_lists`, `get_labels`,
+`get_cards` явно.
+
+## Multi-board usage
+
+По умолчанию `get_lists`, `get_labels`, `get_cards` работают с доской из `TRELLO_BOARD_ID`.
+Чтобы указать другую доску для конкретного вызова, передай `board_id` явно:
+
+```python
+# Получить списки конкретной доски
+result = await client.call_tool("get_lists", {"board_id": "BOARD_ID_HERE"})
+
+# Дефолтное поведение (использует TRELLO_BOARD_ID из конфига)
+result = await client.call_tool("get_lists", {})
+```
+
+Если `board_id` не передан и `TRELLO_BOARD_ID` не задан — инструмент вернёт ошибку.
 
 ## Запуск
 
