@@ -49,9 +49,7 @@ async def test_tc_tmcp_08_2_correct_url_and_auth(
 ) -> None:
     """TC-TMCP-08-2 — Корректный URL и авторизация в запросе."""
     # Given: замокан Trello API, креды из конфига
-    route = respx_mock.get("/members/me/boards").mock(
-        return_value=httpx.Response(200, json=[])
-    )
+    route = respx_mock.get("/members/me/boards").mock(return_value=httpx.Response(200, json=[]))
     async with TrelloClient(settings) as client:
         # When: вызывается get_boards
         await client.get_boards()
@@ -67,9 +65,7 @@ async def test_tc_tmcp_08_3_filter_open_in_request(
 ) -> None:
     """TC-TMCP-08-3 — Заархивированные доски исключены (filter=open)."""
     # Given: замокан API
-    route = respx_mock.get("/members/me/boards").mock(
-        return_value=httpx.Response(200, json=[])
-    )
+    route = respx_mock.get("/members/me/boards").mock(return_value=httpx.Response(200, json=[]))
     async with TrelloClient(settings) as client:
         # When: вызывается get_boards
         await client.get_boards()
