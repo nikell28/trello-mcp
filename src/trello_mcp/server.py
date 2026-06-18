@@ -70,6 +70,37 @@ def _sort_comments_by_created_at(comments: list[dict[str, str]]) -> list[dict[st
 
 
 @mcp.tool()
+async def get_boards(
+    name: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Фильтр по названию доски (регистронезависимое точное совпадение, опционально)."
+            )
+        ),
+    ] = None,
+) -> list[dict[str, str]] | str:
+    """Вернуть все открытые доски текущего пользователя.
+
+    Аргументы:
+        name: опциональный фильтр по названию (регистронезависимое точное совпадение).
+
+    Используй, чтобы найти нужную доску по названию перед работой с её списками и карточками.
+    """
+    schemas.GetBoardsArgs(name=name)
+    try:
+        settings = get_settings()
+        async with TrelloClient(settings) as client:
+            boards = await client.get_boards()
+        if name:
+            name_lower = name.lower()
+            boards = [b for b in boards if b.name.lower() == name_lower]
+        return [{"id": board.id, "name": board.name} for board in boards]
+    except TrelloError as exc:
+        return str(exc)
+
+
+@mcp.tool()
 async def get_lists(
     board_id: Annotated[
         str | None,

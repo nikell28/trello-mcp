@@ -13,7 +13,7 @@ import httpx
 
 from trello_mcp.config import Settings
 from trello_mcp.errors import TrelloAPIError, TrelloAuthError, TrelloNotFoundError
-from trello_mcp.models import Card, CardBrief, Label, List
+from trello_mcp.models import Board, Card, CardBrief, Label, List
 
 
 class TrelloClient:
@@ -44,6 +44,15 @@ class TrelloClient:
         tb: TracebackType | None,
     ) -> None:
         await self.aclose()
+
+    async def get_boards(self) -> list[Board]:
+        """Получить все открытые доски пользователя."""
+        response = await self._client.get(
+            "/members/me/boards",
+            params={**self._auth, "filter": "open"},
+        )
+        self._raise_for_status(response)
+        return [Board.model_validate(item) for item in response.json()]
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         """Преобразовать HTTP-ошибку в доменное исключение с читаемым сообщением."""

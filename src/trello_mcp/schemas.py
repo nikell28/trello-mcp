@@ -159,3 +159,14 @@ class GetCommentsArgs(_ArgsModel):
     """Аргументы инструмента get_comments."""
 
     card_id: str = Field(min_length=1, description="Идентификатор карточки.")
+
+
+class GetBoardsArgs(_ArgsModel):
+    """Аргументы инструмента get_boards."""
+
+    name: str | None = Field(
+        default=None,
+        description=(
+            "Фильтр по названию доски (регистронезависимое точное совпадение, опционально)."
+        ),
+    )
